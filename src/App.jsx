@@ -8,6 +8,50 @@ import {
 
 /*
  * ============================================================
+ * Cloudinary image delivery
+ * ============================================================
+ * The original image paths are kept in the story/gallery data.
+ * When VITE_CLOUDINARY_CLOUD_NAME is present, those paths are
+ * resolved to Cloudinary URLs automatically for production.
+ *
+ * Netlify environment variables:
+ *   VITE_CLOUDINARY_CLOUD_NAME=your_cloud_name
+ *   VITE_CLOUDINARY_FOLDER=optional_folder_name
+ *
+ * Do NOT put a Cloudinary API secret in a VITE_ variable.
+ */
+const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || "";
+const CLOUDINARY_FOLDER = import.meta.env.VITE_CLOUDINARY_FOLDER || "";
+
+const resolveImageSrc = (src) => {
+  if (!src) return src;
+
+  // If an image is already a remote URL, keep it unchanged.
+  if (/^https?:\/\//i.test(src)) return src;
+
+  // Without the Netlify/Cloudinary variable, preserve the original
+  // local path so local development continues to work as before.
+  if (!CLOUDINARY_CLOUD_NAME) return src;
+
+  const cleanPath = String(src).replace(/^\/+/, "");
+  const withoutImagesFolder = cleanPath.replace(/^images\//i, "");
+  const publicId = withoutImagesFolder.replace(/\.(jpe?g|png|webp|avif|gif)$/i, "");
+
+  const folder = CLOUDINARY_FOLDER
+    ? `${CLOUDINARY_FOLDER.replace(/^\/+|\/+$/g, "")}/`
+    : "";
+
+  const encodedPublicId = `${folder}${publicId}`
+    .split("/")
+    .map((part) => encodeURIComponent(part))
+    .join("/");
+
+  return `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload/f_auto,q_auto,c_limit,w_1600/${encodedPublicId}`;
+};
+
+
+/*
+ * ============================================================
  * Romantic visual effects
  * These components add atmosphere without changing any of the
  * original story, photos, or written content.
@@ -58,36 +102,6 @@ const FloatingHearts = () => {
     { left: "76%", delay: "4s", duration: "13s", size: "14px" },
     { left: "91%", delay: "9s", duration: "15s", size: "10px" },
   ];
-
-
-      <style>{`
-        @keyframes letterEnvelope {
-          0%, 100% { transform: translateY(0) rotate(0deg); }
-          50% { transform: translateY(-3px) rotate(-1deg); }
-        }
-
-        @keyframes letterRise {
-          0% {
-            transform: translateY(22px) scaleY(0.85);
-            opacity: 0;
-          }
-          35% {
-            opacity: 1;
-          }
-          100% {
-            transform: translateY(-10px) scaleY(1);
-            opacity: 1;
-          }
-        }
-
-        .animate-letterEnvelope {
-          animation: letterEnvelope 1.2s ease-in-out infinite;
-        }
-
-        .animate-letterRise {
-          animation: letterRise 1.35s cubic-bezier(0.22, 1, 0.36, 1) both;
-        }
-      `}</style>
 
   return (
     <div
@@ -588,7 +602,7 @@ I want to show you the permanent difference in this new man who will always list
                               aria-label={`Open ${photo.label}`}
                             >
                               <img 
-                                src={photo.src} 
+                                src={resolveImageSrc(photo.src)} 
                                 alt={photo.label}
                                 onError={(e) => {
                                   // Fallback to placeholder if image file is not found in public/images folder
@@ -814,7 +828,7 @@ I want to show you the permanent difference in this new man who will always list
                 aria-label={`Open ${item.label}`}
               >
                 <img 
-                  src={item.src} 
+                  src={resolveImageSrc(item.src)} 
                   alt={item.label}
                   onError={(e) => {
                     e.currentTarget.style.display = 'none';
@@ -889,7 +903,7 @@ I want to show you the permanent difference in this new man who will always list
           >
             <div className="relative max-h-[78vh] max-w-full rounded-3xl overflow-hidden border border-white/20 shadow-2xl bg-black/20">
               <img
-                src={selectedImage.src}
+                src={resolveImageSrc(selectedImage.src)}
                 alt={selectedImage.label}
                 className="photo-lightbox-image max-h-[78vh] max-w-full w-auto object-contain"
                 onError={(event) => {
